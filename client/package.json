@@ -13,12 +13,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
-    "@radix-ui/react-slot": "^1.2.4",
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.13.5",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -36,6 +33,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5.9.3"
+    "typescript": "^5"
   }
 }

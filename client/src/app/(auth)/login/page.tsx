@@ -6,24 +6,23 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { loginUser, clearError } from "@/redux/slices/authSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { loginUser, clearError } from "@/redux/slices/authSlice";
-import { LogIn } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(1, "Password is required"),
+const schema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isLoading, error, isAuthenticated } = useAppSelector(
+  const { isAuthenticated, isLoading, error } = useAppSelector(
     (state) => state.auth,
   );
 
@@ -31,95 +30,88 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
   });
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    }
+    if (isAuthenticated) router.push("/dashboard");
   }, [isAuthenticated, router]);
 
   useEffect(() => {
-    dispatch(clearError());
+    return () => {
+      dispatch(clearError());
+    };
   }, [dispatch]);
 
-  const onSubmit = (data: LoginForm) => {
+  const onSubmit = async (data: FormData) => {
     dispatch(loginUser(data));
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 lg:hidden mb-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900">
-            <span className="text-sm font-bold text-white">PM</span>
+            <span className="text-xs font-bold text-white">PM</span>
           </div>
-          <span className="text-lg font-bold">ProManage</span>
+          <span className="text-sm font-semibold tracking-tight">
+            ProManage
+          </span>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+          Welcome back
+        </h1>
         <p className="text-sm text-neutral-500">
-          Enter your credentials to access your account
+          Sign in to your account to continue
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
+            placeholder="you@company.com"
             {...register("email")}
           />
           {errors.email && (
             <p className="text-xs text-red-500">{errors.email.message}</p>
           )}
         </div>
-
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             type="password"
             placeholder="••••••••"
-            autoComplete="current-password"
             {...register("password")}
           />
           {errors.password && (
             <p className="text-xs text-red-500">{errors.password.message}</p>
           )}
         </div>
-
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            <>
-              <LogIn className="h-4 w-4" />
-              Sign In
-            </>
-          )}
+          {isLoading ? "Signing in..." : "Sign in"}
         </Button>
       </form>
 
       {/* Footer */}
       <p className="text-center text-sm text-neutral-500">
-        Don&apos;t have an account?{" "}
+        Don&#39;t have an account?{" "}
         <Link
           href="/register"
-          className="font-medium text-neutral-900 underline underline-offset-4 hover:text-neutral-700"
+          className="font-medium text-neutral-900 hover:underline underline-offset-4"
         >
           Sign up
         </Link>

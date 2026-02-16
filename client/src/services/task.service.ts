@@ -1,17 +1,8 @@
 import api from "./axios";
-import type {
-  ApiResponse,
-  Task,
-  CreateTaskPayload,
-  UpdateTaskPayload,
-  TaskStatus,
-} from "@/types";
+import type { ApiResponse, Task, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from "@/types";
 
 export const taskService = {
-  async getTasksByProject(
-    projectId: string,
-    params?: { page?: number; limit?: number; status?: string; priority?: string }
-  ) {
+  async getTasksByProject(projectId: string, params?: { page?: number; limit?: number }) {
     const res = await api.get<ApiResponse<Task[]>>(`/tasks/project/${projectId}`, { params });
     return res.data;
   },
@@ -27,8 +18,7 @@ export const taskService = {
   },
 
   async deleteTask(id: string) {
-    const res = await api.delete<ApiResponse>(`/tasks/${id}`);
-    return res.data;
+    await api.delete(`/tasks/${id}`);
   },
 
   async moveTask(id: string, status: TaskStatus) {
@@ -36,7 +26,7 @@ export const taskService = {
     return res.data.data!;
   },
 
-  async assignTask(id: string, assigneeId: string | null) {
+  async assignTask(id: string, assigneeId: string) {
     const res = await api.patch<ApiResponse<Task>>(`/tasks/${id}/assign`, { assigneeId });
     return res.data.data!;
   },

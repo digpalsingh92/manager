@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
 interface SelectProps {
   value: string;
@@ -19,21 +20,21 @@ function Select({
   placeholder,
 }: SelectProps) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-      className={cn(
-        "flex h-9 w-full rounded-md border border-neutral-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer appearance-none",
-        className,
-      )}
-    >
-      {placeholder && (
-        <option value="" disabled>
-          {placeholder}
-        </option>
-      )}
-      {children}
-    </select>
+    <div className={cn("relative", className)}>
+      <select
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        className="flex h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 pr-9 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer appearance-none"
+      >
+        {placeholder && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+    </div>
   );
 }
 

@@ -141,13 +141,13 @@ async function seed() {
     },
   });
 
-  console.log(`  ✅ Admin user created: admin@projectmanager.com / Admin@123`);
+  console.log(`  ✅ Admin user created`);
 
   // ─── Create Sample Users ──────────────────
   console.log('\n👤 Creating sample users...');
 
   const sampleUsers = [
-    { email: 'digpalsingh9240@gmail.com', firstName: 'Digpal', lastName: 'Singh', role: 'PROJECT_MANAGER' },
+    { email: 'om@projectmanager.com', firstName: 'Jane', lastName: 'Manager', role: 'PROJECT_MANAGER' },
     { email: 'dev@projectmanager.com', firstName: 'John', lastName: 'Developer', role: 'DEVELOPER' },
     { email: 'viewer@projectmanager.com', firstName: 'Jane', lastName: 'Viewer', role: 'VIEWER' },
   ];

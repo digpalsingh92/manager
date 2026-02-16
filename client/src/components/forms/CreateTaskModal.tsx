@@ -4,6 +4,9 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { createTask } from "@/redux/slices/taskSlice";
+import { setCreateTaskModalOpen } from "@/redux/slices/uiSlice";
 import {
   Dialog,
   DialogContent,
@@ -16,26 +19,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectOption } from "@/components/ui/select";
-import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { setCreateTaskModalOpen } from "@/redux/slices/uiSlice";
-import { createTask } from "@/redux/slices/taskSlice";
 
-const createTaskSchema = z.object({
+const schema = z.object({
   title: z.string().min(1, "Title is required").max(200),
-  description: z.string().max(2000).optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
+  description: z.string().max(1000).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
   dueDate: z.string().optional(),
 });
 
-type CreateTaskForm = z.infer<typeof createTaskSchema>;
+type FormData = z.infer<typeof schema>;
 
-interface CreateTaskModalProps {
-  projectId: string;
-}
-
-export function CreateTaskModal({ projectId }: CreateTaskModalProps) {
+export function CreateTaskModal() {
   const dispatch = useAppDispatch();
   const { createTaskModalOpen } = useAppSelector((state) => state.ui);
+  const { currentProject } = useAppSelector((state) => state.projects);
 
   const {
     register,
@@ -44,30 +41,23 @@ export function CreateTaskModal({ projectId }: CreateTaskModalProps) {
     setValue,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<CreateTaskForm>({
-    resolver: zodResolver(createTaskSchema),
-    defaultValues: {
-      priority: "MEDIUM",
-    },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { priority: "MEDIUM" },
   });
 
-  const priorityValue = watch("priority");
+  const priority = watch("priority");
 
   const handleClose = () => {
     dispatch(setCreateTaskModalOpen(false));
     reset();
   };
 
-  const onSubmit = async (data: CreateTaskForm) => {
+  const onSubmit = async (data: FormData) => {
+    if (!currentProject) return;
     await dispatch(
-      createTask({
-        title: data.title,
-        description: data.description,
-        priority: data.priority as any,
-        projectId,
-        dueDate: data.dueDate || undefined,
-      }),
-    );
+      createTask({ ...data, projectId: currentProject.id }),
+    ).unwrap();
     handleClose();
   };
 
@@ -77,9 +67,8 @@ export function CreateTaskModal({ projectId }: CreateTaskModalProps) {
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
-
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
@@ -90,35 +79,34 @@ export function CreateTaskModal({ projectId }: CreateTaskModalProps) {
               <p className="text-xs text-red-500">{errors.title.message}</p>
             )}
           </div>
-
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Add a description..."
+              placeholder="Describe the task..."
+              rows={3}
               {...register("description")}
             />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Priority</Label>
               <Select
-                value={priorityValue}
-                onValueChange={(v) => setValue("priority", v as any)}
+                value={priority}
+                onValueChange={(v) =>
+                  setValue("priority", v as FormData["priority"])
+                }
               >
                 <SelectOption value="LOW">Low</SelectOption>
                 <SelectOption value="MEDIUM">Medium</SelectOption>
                 <SelectOption value="HIGH">High</SelectOption>
               </Select>
             </div>
-
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="dueDate">Due Date</Label>
               <Input id="dueDate" type="date" {...register("dueDate")} />
             </div>
           </div>
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel

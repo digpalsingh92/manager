@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function AuthLayout({
   children,
 }: {
@@ -5,43 +7,60 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-screen">
-      {/* Left Panel — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-neutral-950 p-12">
-        <div className="max-w-md space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
-              <span className="text-xl font-bold text-neutral-900">PM</span>
+      {/* Left branding panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-neutral-900 text-white flex-col justify-between p-12">
+        <div>
+          <div className="flex items-center gap-2.5 mb-16">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
+              <span className="text-xs font-bold text-neutral-900">PM</span>
             </div>
-            <span className="text-3xl font-bold text-white tracking-tight">
+            <span className="text-lg font-semibold tracking-tight">
               ProManage
             </span>
           </div>
-          <p className="text-lg text-neutral-400 leading-relaxed">
-            The modern project management platform for teams that ship fast.
-            Kanban boards, task tracking, and team collaboration — all in one
-            place.
+          <h1 className="text-3xl font-bold leading-tight mb-4">
+            Manage projects
+            <br />
+            with confidence.
+          </h1>
+          <p className="text-neutral-400 text-base max-w-sm leading-relaxed">
+            Track tasks, collaborate with your team, and deliver projects on
+            time — all in one clean workspace.
           </p>
-          <div className="grid grid-cols-2 gap-4 pt-6">
+        </div>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
             {[
-              { value: "Kanban", label: "Drag & Drop Boards" },
-              { value: "RBAC", label: "Role-Based Access" },
-              { value: "Real-time", label: "Live Updates" },
-              { value: "Teams", label: "Collaboration" },
-            ].map((item) => (
+              {
+                title: "Task Tracking",
+                desc: "Kanban boards & task management",
+              },
+              {
+                title: "Team Collaboration",
+                desc: "Real-time project updates",
+              },
+              {
+                title: "Role-Based Access",
+                desc: "Granular permissions system",
+              },
+              { title: "Analytics", desc: "Project insights & reports" },
+            ].map((feature) => (
               <div
-                key={item.value}
-                className="rounded-lg border border-neutral-800 p-4"
+                key={feature.title}
+                className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4"
               >
-                <p className="font-semibold text-white text-sm">{item.value}</p>
-                <p className="text-xs text-neutral-500 mt-1">{item.label}</p>
+                <h3 className="text-sm font-medium mb-1">{feature.title}</h3>
+                <p className="text-xs text-neutral-400">{feature.desc}</p>
               </div>
             ))}
           </div>
+          <p className="text-xs text-neutral-500">Trusted by teams worldwide</p>
         </div>
       </div>
 
-      {/* Right Panel — Auth Form */}
-      <div className="flex flex-1 items-center justify-center p-8">
+      {/* Right form panel */}
+      <div className="flex flex-1 items-center justify-center p-6 sm:p-8 lg:p-12 bg-white">
         <div className="w-full max-w-sm">{children}</div>
       </div>
     </div>

@@ -3,26 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { fetchProjects } from "@/redux/slices/projectSlice";
-import { fetchTasks, setSelectedTask } from "@/redux/slices/taskSlice";
-import { setTaskModalOpen } from "@/redux/slices/uiSlice";
-import { TaskModal } from "@/components/forms/TaskModal";
+import { openTaskDetail } from "@/redux/slices/uiSlice";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectOption } from "@/components/ui/select";
-import { format } from "date-fns";
-import { CheckSquare, Flag, Calendar, ArrowRight } from "lucide-react";
-import type { Task, TaskPriority, TaskStatus } from "@/types";
-
-const priorityConfig: Record<
-  TaskPriority,
-  { label: string; variant: "destructive" | "warning" | "info" }
-> = {
-  HIGH: { label: "High", variant: "destructive" },
-  MEDIUM: { label: "Medium", variant: "warning" },
-  LOW: { label: "Low", variant: "info" },
-};
+import { taskService } from "@/services/task.service";
+import type { Task, TaskStatus, TaskPriority } from "@/types";
+import { CheckSquare, Calendar, Filter } from "lucide-react";
 
 const statusConfig: Record<
   TaskStatus,
@@ -34,143 +24,158 @@ const statusConfig: Record<
   DONE: { label: "Done", variant: "success" },
 };
 
-export default function MyTasksPage() {
+const priorityConfig: Record<
+  TaskPriority,
+  { label: string; variant: "success" | "warning" | "destructive" }
+> = {
+  LOW: { label: "Low", variant: "success" },
+  MEDIUM: { label: "Medium", variant: "warning" },
+  HIGH: { label: "High", variant: "destructive" },
+};
+
+export default function TasksPage() {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
   const { projects } = useAppSelector((state) => state.projects);
-  const { tasks, isLoading } = useAppSelector((state) => state.tasks);
-  const [selectedProject, setSelectedProject] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterPriority, setFilterPriority] = useState<string>("");
 
   useEffect(() => {
-    dispatch(fetchProjects({ limit: 50 }));
+    dispatch(fetchProjects({}));
   }, [dispatch]);
 
   useEffect(() => {
-    if (projects.length > 0) {
-      const projectId = selectedProject || projects[0]?.id;
-      if (projectId) {
-        dispatch(fetchTasks({ projectId, params: { limit: 100 } }));
+    const loadTasks = async () => {
+      setLoading(true);
+      try {
+        const results = await Promise.all(
+          projects.map((p) =>
+            taskService.getTasksByProject(p.id, { limit: 100 }),
+          ),
+        );
+        const tasks = results.flatMap((r) => r.data || []);
+        setAllTasks(tasks);
+      } catch {
+        setAllTasks([]);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [dispatch, projects, selectedProject]);
+    };
+    if (projects.length > 0) loadTasks();
+    else setLoading(false);
+  }, [projects]);
 
-  // Filter tasks assigned to current user
-  const myTasks = tasks.filter(
-    (t) =>
-      t.assignee?.id === user?.id &&
-      (statusFilter ? t.status === statusFilter : true),
-  );
-
-  const handleTaskClick = (task: Task) => {
-    dispatch(setSelectedTask(task));
-    dispatch(setTaskModalOpen(true));
-  };
+  const filtered = allTasks.filter((t) => {
+    if (filterStatus && t.status !== filterStatus) return false;
+    if (filterPriority && t.priority !== filterPriority) return false;
+    return true;
+  });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Tasks assigned to you across projects
+        <h1 className="text-xl font-bold text-neutral-900">My Tasks</h1>
+        <p className="text-sm text-neutral-500 mt-0.5">
+          {allTasks.length} tasks across all projects
         </p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <Filter className="h-3.5 w-3.5" /> Filters:
+        </div>
         <Select
-          value={selectedProject}
-          onValueChange={setSelectedProject}
-          className="w-full sm:w-48"
-          placeholder="Select project"
+          value={filterStatus}
+          onValueChange={setFilterStatus}
+          className="w-36"
         >
-          {projects.map((p) => (
-            <SelectOption key={p.id} value={p.id}>
-              {p.name}
-            </SelectOption>
-          ))}
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={setStatusFilter}
-          className="w-full sm:w-40"
-          placeholder="All statuses"
-        >
-          <SelectOption value="">All Statuses</SelectOption>
+          <SelectOption value="">All Status</SelectOption>
           <SelectOption value="TODO">To Do</SelectOption>
           <SelectOption value="IN_PROGRESS">In Progress</SelectOption>
           <SelectOption value="REVIEW">Review</SelectOption>
           <SelectOption value="DONE">Done</SelectOption>
         </Select>
+        <Select
+          value={filterPriority}
+          onValueChange={setFilterPriority}
+          className="w-36"
+        >
+          <SelectOption value="">All Priority</SelectOption>
+          <SelectOption value="LOW">Low</SelectOption>
+          <SelectOption value="MEDIUM">Medium</SelectOption>
+          <SelectOption value="HIGH">High</SelectOption>
+        </Select>
       </div>
 
       {/* Task List */}
-      {isLoading ? (
+      {loading ? (
         <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="h-5 w-full" />
+              </CardContent>
+            </Card>
           ))}
         </div>
-      ) : myTasks.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="h-16 w-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
-              <CheckSquare className="h-7 w-7 text-neutral-400" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">No tasks assigned</h3>
-            <p className="text-sm text-neutral-500">
-              Tasks assigned to you will appear here
-            </p>
-          </CardContent>
-        </Card>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={CheckSquare}
+          title="No tasks found"
+          description={
+            allTasks.length > 0
+              ? "Try adjusting your filters"
+              : "Tasks will appear here when assigned to you"
+          }
+        />
       ) : (
         <div className="space-y-2">
-          {myTasks.map((task) => {
-            const priority = priorityConfig[task.priority];
-            const status = statusConfig[task.status];
-            return (
-              <Card
-                key={task.id}
-                className="cursor-pointer hover:border-neutral-300 transition-all group"
-                onClick={() => handleTaskClick(task)}
-              >
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <span className="text-sm font-medium truncate">
-                        {task.title}
-                      </span>
-                      {task.project?.name && (
-                        <span className="text-xs text-neutral-400">
-                          {task.project.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant={status.variant} className="text-[10px]">
-                      {status.label}
-                    </Badge>
-                    <Badge variant={priority.variant} className="text-[10px]">
-                      <Flag className="h-2.5 w-2.5 mr-0.5" />
-                      {priority.label}
-                    </Badge>
-                    {task.dueDate && (
-                      <span className="text-[11px] text-neutral-400 hidden sm:flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(task.dueDate), "MMM d")}
-                      </span>
-                    )}
-                    <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {filtered.map((task) => (
+            <Card
+              key={task.id}
+              className="hover:shadow-md hover:border-neutral-300 transition-all cursor-pointer"
+              onClick={() => dispatch(openTaskDetail(task.id))}
+            >
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-neutral-900 truncate">
+                    {task.title}
+                  </h3>
+                  <p className="text-xs text-neutral-500 mt-0.5 truncate">
+                    {task.project?.name || "Unknown project"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <Badge variant={statusConfig[task.status].variant}>
+                    {statusConfig[task.status].label}
+                  </Badge>
+                  <Badge variant={priorityConfig[task.priority].variant}>
+                    {priorityConfig[task.priority].label}
+                  </Badge>
+                  {task.dueDate && (
+                    <span className="flex items-center gap-1 text-[10px] text-neutral-400 hidden sm:flex">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(task.dueDate).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  )}
+                  {task.assignee && (
+                    <Avatar
+                      fallback={`${task.assignee.firstName[0]}${task.assignee.lastName[0]}`}
+                      size="sm"
+                    />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
-
-      <TaskModal />
     </div>
   );
 }

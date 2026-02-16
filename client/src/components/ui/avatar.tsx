@@ -1,48 +1,61 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
-  src?: string;
-  alt?: string;
-  fallback: string;
-  size?: "sm" | "md" | "lg";
+const colors = [
+  "bg-indigo-100 text-indigo-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-violet-100 text-violet-700",
+  "bg-sky-100 text-sky-700",
+];
+
+function getColorFromName(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
-const sizeClasses = {
-  sm: "h-7 w-7 text-xs",
-  md: "h-9 w-9 text-sm",
-  lg: "h-11 w-11 text-base",
-};
+interface AvatarProps {
+  src?: string;
+  fallback: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
 
-function Avatar({
-  src,
-  alt,
-  fallback,
-  size = "md",
-  className,
-  ...props
-}: AvatarProps) {
-  const [hasError, setHasError] = React.useState(false);
+function Avatar({ src, fallback, size = "md", className }: AvatarProps) {
+  const sizeClasses = {
+    sm: "h-7 w-7 text-[10px]",
+    md: "h-8 w-8 text-xs",
+    lg: "h-10 w-10 text-sm",
+  };
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={fallback}
+        className={cn(
+          "rounded-full object-cover",
+          sizeClasses[size],
+          className,
+        )}
+      />
+    );
+  }
 
   return (
     <div
       className={cn(
-        "relative flex shrink-0 overflow-hidden rounded-full bg-neutral-100 items-center justify-center font-medium text-neutral-600",
+        "inline-flex items-center justify-center rounded-full font-medium shrink-0",
         sizeClasses[size],
+        getColorFromName(fallback),
         className,
       )}
-      {...props}
     >
-      {src && !hasError ? (
-        <img
-          src={src}
-          alt={alt || fallback}
-          className="aspect-square h-full w-full object-cover"
-          onError={() => setHasError(true)}
-        />
-      ) : (
-        <span>{fallback}</span>
-      )}
+      {fallback.slice(0, 2).toUpperCase()}
     </div>
   );
 }

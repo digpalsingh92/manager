@@ -1,24 +1,25 @@
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
+import type { User, LoginPayload, RegisterPayload } from "@/types";
 import { authService } from "@/services/auth.service";
-import type { AuthUser, LoginPayload, RegisterPayload } from "@/types";
 
 interface AuthState {
-  user: AuthUser | null;
+  user: User | null;
   token: string | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  isHydrated: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
   user: null,
-  token: typeof window !== "undefined" ? localStorage.getItem("token") : null,
-  isLoading: false,
+  token: null,
   isAuthenticated: false,
+  isLoading: false,
+  isHydrated: false,
   error: null,
 };
 
-// ─── Thunks ──────────────────────────────────
 export const loginUser = createAsyncThunk(
   "auth/login",
   async (data: LoginPayload, { rejectWithValue }) => {
@@ -28,11 +29,9 @@ export const loginUser = createAsyncThunk(
       localStorage.setItem("user", JSON.stringify(result.user));
       return result;
     } catch (err: any) {
-      return rejectWithValue(
-        err.response?.data?.message || "Login failed"
-      );
+      return rejectWithValue(err.response?.data?.message || "Login failed");
     }
-  }
+  },
 );
 
 export const registerUser = createAsyncThunk(
@@ -44,32 +43,40 @@ export const registerUser = createAsyncThunk(
       localStorage.setItem("user", JSON.stringify(result.user));
       return result;
     } catch (err: any) {
-      return rejectWithValue(
-        err.response?.data?.message || "Registration failed"
-      );
+      return rejectWithValue(err.response?.data?.message || "Registration failed");
     }
-  }
+  },
 );
 
-export const fetchProfile = createAsyncThunk(
-  "auth/fetchProfile",
+export const getProfile = createAsyncThunk(
+  "auth/getProfile",
   async (_, { rejectWithValue }) => {
     try {
       return await authService.getProfile();
     } catch (err: any) {
-      return rejectWithValue(
-        err.response?.data?.message || "Failed to fetch profile"
-      );
+      return rejectWithValue(err.response?.data?.message || "Failed to get profile");
     }
-  }
+  },
 );
 
-// ─── Slice ───────────────────────────────────
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    logout(state) {
+    hydrateAuth: (state) => {
+      if (typeof window !== "undefined") {
+        const token = localStorage.getItem("token");
+        const userStr = localStorage.getItem("user");
+        if (token) {
+          state.token = token;
+          if (userStr) {
+            try { state.user = JSON.parse(userStr); state.isAuthenticated = true; } catch {}
+          }
+        }
+      }
+      state.isHydrated = true;
+    },
+    logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
@@ -79,80 +86,62 @@ const authSlice = createSlice({
         localStorage.removeItem("user");
       }
     },
-    clearError(state) {
+    clearError: (state) => {
       state.error = null;
     },
-    hydrateAuth(state) {
-      if (typeof window !== "undefined") {
-        const token = localStorage.getItem("token");
-        const userStr = localStorage.getItem("user");
-        if (token && userStr) {
-          try {
-            state.user = JSON.parse(userStr);
-            state.token = token;
-            state.isAuthenticated = true;
-          } catch {
-            state.user = null;
-            state.token = null;
-            state.isAuthenticated = false;
-          }
-        }
-      }
+    setUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+      state.isAuthenticated = true;
     },
   },
   extraReducers: (builder) => {
-    // Login
     builder
+      // Login
       .addCase(loginUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.isAuthenticated = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
-      });
-
-    // Register
-    builder
+      })
+      // Register
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.isAuthenticated = true;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
-      });
-
-    // Fetch Profile
-    builder
-      .addCase(fetchProfile.pending, (state) => {
+      })
+      // Profile
+      .addCase(getProfile.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(fetchProfile.fulfilled, (state, action) => {
+      .addCase(getProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isAuthenticated = true;
         state.user = action.payload;
+        state.isAuthenticated = true;
       })
-      .addCase(fetchProfile.rejected, (state) => {
+      .addCase(getProfile.rejected, (state) => {
         state.isLoading = false;
         state.isAuthenticated = false;
-        state.user = null;
         state.token = null;
       });
   },
 });
 
-export const { logout, clearError, hydrateAuth } = authSlice.actions;
+export const { hydrateAuth, logout, clearError, setUser } = authSlice.actions;
 export default authSlice.reducer;

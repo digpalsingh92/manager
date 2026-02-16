@@ -1,37 +1,29 @@
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import type { Task, TaskStatus, CreateTaskPayload, UpdateTaskPayload } from "@/types";
 import { taskService } from "@/services/task.service";
-import type { Task, CreateTaskPayload, UpdateTaskPayload, TaskStatus, Pagination } from "@/types";
 
 interface TaskState {
   tasks: Task[];
-  selectedTask: Task | null;
-  pagination: Pagination | null;
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: TaskState = {
   tasks: [],
-  selectedTask: null,
-  pagination: null,
   isLoading: false,
   error: null,
 };
 
-// ─── Thunks ──────────────────────────────────
-export const fetchTasks = createAsyncThunk(
+export const fetchTasksByProject = createAsyncThunk(
   "tasks/fetchByProject",
-  async (
-    { projectId, params }: { projectId: string; params?: Record<string, any> },
-    { rejectWithValue }
-  ) => {
+  async (projectId: string, { rejectWithValue }) => {
     try {
-      const res = await taskService.getTasksByProject(projectId, params);
-      return { tasks: res.data!, pagination: res.meta?.pagination };
+      const res = await taskService.getTasksByProject(projectId, { limit: 100 });
+      return res.data || [];
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to fetch tasks");
     }
-  }
+  },
 );
 
 export const createTask = createAsyncThunk(
@@ -42,7 +34,7 @@ export const createTask = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to create task");
     }
-  }
+  },
 );
 
 export const updateTask = createAsyncThunk(
@@ -53,7 +45,18 @@ export const updateTask = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to update task");
     }
-  }
+  },
+);
+
+export const moveTask = createAsyncThunk(
+  "tasks/move",
+  async ({ id, status }: { id: string; status: TaskStatus }, { rejectWithValue }) => {
+    try {
+      return await taskService.moveTask(id, status);
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to move task");
+    }
+  },
 );
 
 export const deleteTask = createAsyncThunk(
@@ -65,122 +68,52 @@ export const deleteTask = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to delete task");
     }
-  }
+  },
 );
 
-export const moveTask = createAsyncThunk(
-  "tasks/move",
-  async ({ id, status }: { id: string; status: TaskStatus }, { rejectWithValue }) => {
-    try {
-      return await taskService.moveTask(id, status);
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.message || "Failed to move task");
-    }
-  }
-);
-
-export const assignTask = createAsyncThunk(
-  "tasks/assign",
-  async ({ id, assigneeId }: { id: string; assigneeId: string | null }, { rejectWithValue }) => {
-    try {
-      return await taskService.assignTask(id, assigneeId);
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data?.message || "Failed to assign task");
-    }
-  }
-);
-
-// ─── Slice ───────────────────────────────────
 const taskSlice = createSlice({
   name: "tasks",
   initialState,
   reducers: {
-    setSelectedTask(state, action: PayloadAction<Task | null>) {
-      state.selectedTask = action.payload;
-    },
-    clearTasks(state) {
+    clearTasks: (state) => {
       state.tasks = [];
-      state.selectedTask = null;
     },
-    clearTaskError(state) {
-      state.error = null;
-    },
-    // Optimistic move for drag & drop
-    optimisticMoveTask(
-      state,
-      action: PayloadAction<{ taskId: string; newStatus: TaskStatus }>
-    ) {
-      const task = state.tasks.find((t) => t.id === action.payload.taskId);
-      if (task) {
-        task.status = action.payload.newStatus;
-      }
-    },
-    // Revert optimistic move
-    revertMoveTask(
-      state,
-      action: PayloadAction<{ taskId: string; oldStatus: TaskStatus }>
-    ) {
-      const task = state.tasks.find((t) => t.id === action.payload.taskId);
-      if (task) {
-        task.status = action.payload.oldStatus;
-      }
+    optimisticMoveTask: (state, action) => {
+      const { id, status } = action.payload;
+      const task = state.tasks.find((t) => t.id === id);
+      if (task) task.status = status;
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchTasks.pending, (state) => {
+      .addCase(fetchTasksByProject.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchTasks.fulfilled, (state, action) => {
+      .addCase(fetchTasksByProject.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.tasks = action.payload.tasks;
-        state.pagination = action.payload.pagination || null;
+        state.tasks = action.payload;
       })
-      .addCase(fetchTasks.rejected, (state, action) => {
+      .addCase(fetchTasksByProject.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(createTask.fulfilled, (state, action) => {
+        state.tasks.push(action.payload);
+      })
+      .addCase(updateTask.fulfilled, (state, action) => {
+        const idx = state.tasks.findIndex((t) => t.id === action.payload.id);
+        if (idx !== -1) state.tasks[idx] = action.payload;
+      })
+      .addCase(moveTask.fulfilled, (state, action) => {
+        const idx = state.tasks.findIndex((t) => t.id === action.payload.id);
+        if (idx !== -1) state.tasks[idx] = action.payload;
+      })
+      .addCase(deleteTask.fulfilled, (state, action) => {
+        state.tasks = state.tasks.filter((t) => t.id !== action.payload);
       });
-
-    builder.addCase(createTask.fulfilled, (state, action) => {
-      state.tasks.unshift(action.payload);
-    });
-
-    builder.addCase(updateTask.fulfilled, (state, action) => {
-      const index = state.tasks.findIndex((t) => t.id === action.payload.id);
-      if (index !== -1) state.tasks[index] = action.payload;
-      if (state.selectedTask?.id === action.payload.id) {
-        state.selectedTask = action.payload;
-      }
-    });
-
-    builder.addCase(deleteTask.fulfilled, (state, action) => {
-      state.tasks = state.tasks.filter((t) => t.id !== action.payload);
-      if (state.selectedTask?.id === action.payload) {
-        state.selectedTask = null;
-      }
-    });
-
-    builder.addCase(moveTask.fulfilled, (state, action) => {
-      const index = state.tasks.findIndex((t) => t.id === action.payload.id);
-      if (index !== -1) state.tasks[index] = action.payload;
-    });
-
-    builder.addCase(assignTask.fulfilled, (state, action) => {
-      const index = state.tasks.findIndex((t) => t.id === action.payload.id);
-      if (index !== -1) state.tasks[index] = action.payload;
-      if (state.selectedTask?.id === action.payload.id) {
-        state.selectedTask = action.payload;
-      }
-    });
   },
 });
 
-export const {
-  setSelectedTask,
-  clearTasks,
-  clearTaskError,
-  optimisticMoveTask,
-  revertMoveTask,
-} = taskSlice.actions;
+export const { clearTasks, optimisticMoveTask } = taskSlice.actions;
 export default taskSlice.reducer;

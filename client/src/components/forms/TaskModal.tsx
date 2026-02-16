@@ -1,44 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { updateTask, deleteTask } from "@/redux/slices/taskSlice";
+import { closeTaskDetail } from "@/redux/slices/uiSlice";
+import { commentService } from "@/services/comment.service";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { setTaskModalOpen } from "@/redux/slices/uiSlice";
-import { setSelectedTask, deleteTask } from "@/redux/slices/taskSlice";
-import { commentService } from "@/services/comment.service";
-import { usePermission } from "@/hooks/usePermission";
-import { format } from "date-fns";
-import {
-  Calendar,
-  Flag,
-  User,
-  MessageSquare,
-  Trash2,
-  Send,
-  Clock,
-} from "lucide-react";
-import type { Comment, TaskPriority, TaskStatus } from "@/types";
+import { Input } from "@/components/ui/input";
+import type { Comment, TaskStatus, TaskPriority } from "@/types";
+import { Calendar, MessageSquare, Trash2, Send } from "lucide-react";
 
-const priorityConfig: Record<
-  TaskPriority,
-  { label: string; variant: "destructive" | "warning" | "info" }
-> = {
-  HIGH: { label: "High", variant: "destructive" },
-  MEDIUM: { label: "Medium", variant: "warning" },
-  LOW: { label: "Low", variant: "info" },
-};
-
-const statusConfig: Record<
+const statusStyles: Record<
   TaskStatus,
   { label: string; variant: "default" | "info" | "warning" | "success" }
 > = {
@@ -48,207 +28,185 @@ const statusConfig: Record<
   DONE: { label: "Done", variant: "success" },
 };
 
+const priorityStyles: Record<
+  TaskPriority,
+  { label: string; variant: "success" | "warning" | "destructive" }
+> = {
+  LOW: { label: "Low", variant: "success" },
+  MEDIUM: { label: "Medium", variant: "warning" },
+  HIGH: { label: "High", variant: "destructive" },
+};
+
 export function TaskModal() {
   const dispatch = useAppDispatch();
-  const { taskModalOpen } = useAppSelector((state) => state.ui);
-  const { selectedTask } = useAppSelector((state) => state.tasks);
-  const { user } = useAppSelector((state) => state.auth);
-  const canDelete = usePermission("delete_task");
-  const canComment = usePermission("comment_task");
-
+  const { taskDetailModalOpen, selectedTaskId } = useAppSelector(
+    (state) => state.ui,
+  );
+  const task = useAppSelector((state) =>
+    state.tasks.tasks.find((t) => t.id === selectedTaskId),
+  );
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
-    if (selectedTask?.id) {
+    if (selectedTaskId && taskDetailModalOpen) {
+      setLoadingComments(true);
       commentService
-        .getCommentsByTask(selectedTask.id)
-        .then((res) => setComments(res.data || []))
-        .catch(() => {});
+        .getCommentsByTask(selectedTaskId)
+        .then(setComments)
+        .catch(() => setComments([]))
+        .finally(() => setLoadingComments(false));
     }
-  }, [selectedTask?.id]);
+  }, [selectedTaskId, taskDetailModalOpen]);
 
-  const handleClose = () => {
-    dispatch(setTaskModalOpen(false));
-    dispatch(setSelectedTask(null));
-    setComments([]);
-    setNewComment("");
+  const handleClose = () => dispatch(closeTaskDetail());
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedTaskId) return;
+    try {
+      const comment = await commentService.createComment({
+        taskId: selectedTaskId,
+        content: newComment,
+      });
+      setComments((prev) => [...prev, comment]);
+      setNewComment("");
+    } catch {
+      /* silently fail */
+    }
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    try {
+      await commentService.deleteComment(id);
+      setComments((prev) => prev.filter((c) => c.id !== id));
+    } catch {
+      /* silently fail */
+    }
   };
 
   const handleDelete = async () => {
-    if (!selectedTask) return;
-    await dispatch(deleteTask(selectedTask.id));
+    if (!selectedTaskId) return;
+    await dispatch(deleteTask(selectedTaskId));
     handleClose();
   };
 
-  const handleAddComment = async () => {
-    if (!newComment.trim() || !selectedTask) return;
-    setIsSubmitting(true);
-    try {
-      const comment = await commentService.createComment({
-        content: newComment.trim(),
-        taskId: selectedTask.id,
-      });
-      setComments((prev) => [comment, ...prev]);
-      setNewComment("");
-    } catch (e) {
-      // handle silently
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!selectedTask) return null;
-
-  const priority = priorityConfig[selectedTask.priority];
-  const status = statusConfig[selectedTask.status];
+  if (!task) return null;
 
   return (
-    <Dialog open={taskModalOpen} onOpenChange={handleClose}>
+    <Dialog open={taskDetailModalOpen} onOpenChange={handleClose}>
       <DialogContent
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
         onClose={handleClose}
       >
         <DialogHeader>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant={status.variant}>{status.label}</Badge>
-            <Badge variant={priority.variant}>
-              <Flag className="h-2.5 w-2.5 mr-1" />
-              {priority.label}
-            </Badge>
-          </div>
-          <DialogTitle className="text-xl">{selectedTask.title}</DialogTitle>
-          {selectedTask.description && (
-            <DialogDescription className="text-neutral-600 whitespace-pre-wrap">
-              {selectedTask.description}
-            </DialogDescription>
-          )}
+          <DialogTitle className="pr-8">{task.title}</DialogTitle>
         </DialogHeader>
 
-        {/* Meta Info */}
-        <div className="grid grid-cols-2 gap-4 py-4 border-y border-neutral-100">
-          <div className="flex items-center gap-2 text-sm">
-            <User className="h-4 w-4 text-neutral-400" />
-            <span className="text-neutral-500">Assignee:</span>
-            {selectedTask.assignee ? (
-              <span className="font-medium">
-                {selectedTask.assignee.firstName}{" "}
-                {selectedTask.assignee.lastName}
-              </span>
-            ) : (
-              <span className="text-neutral-400">Unassigned</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-neutral-400" />
-            <span className="text-neutral-500">Due:</span>
-            <span className="font-medium">
-              {selectedTask.dueDate
-                ? format(new Date(selectedTask.dueDate), "MMM d, yyyy")
-                : "No due date"}
+        {/* Status & Priority */}
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          <Badge variant={statusStyles[task.status].variant}>
+            {statusStyles[task.status].label}
+          </Badge>
+          <Badge variant={priorityStyles[task.priority].variant}>
+            {priorityStyles[task.priority].label}
+          </Badge>
+          {task.dueDate && (
+            <span className="flex items-center gap-1 text-xs text-neutral-500">
+              <Calendar className="h-3 w-3" />
+              {new Date(task.dueDate).toLocaleDateString()}
             </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="h-4 w-4 text-neutral-400" />
-            <span className="text-neutral-500">Created:</span>
-            <span className="font-medium">
-              {format(new Date(selectedTask.createdAt), "MMM d, yyyy")}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <User className="h-4 w-4 text-neutral-400" />
-            <span className="text-neutral-500">By:</span>
-            <span className="font-medium">
-              {selectedTask.createdBy.firstName}{" "}
-              {selectedTask.createdBy.lastName}
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* Comments Section */}
-        <div className="mt-2">
-          <div className="flex items-center gap-2 mb-4">
+        {/* Description */}
+        {task.description && (
+          <div className="mb-4">
+            <p className="text-sm text-neutral-600 leading-relaxed">
+              {task.description}
+            </p>
+          </div>
+        )}
+
+        {/* Assignee */}
+        {task.assignee && (
+          <div className="flex items-center gap-2 mb-5 pb-5 border-b border-neutral-100">
+            <span className="text-xs text-neutral-400">Assigned to</span>
+            <Avatar
+              fallback={`${task.assignee.firstName[0]}${task.assignee.lastName[0]}`}
+              size="sm"
+            />
+            <span className="text-xs font-medium text-neutral-700">
+              {task.assignee.firstName} {task.assignee.lastName}
+            </span>
+          </div>
+        )}
+
+        {/* Comments */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
             <MessageSquare className="h-4 w-4 text-neutral-400" />
-            <h4 className="text-sm font-semibold">
+            <span className="text-sm font-medium text-neutral-700">
               Comments ({comments.length})
-            </h4>
+            </span>
           </div>
 
-          {/* Add Comment */}
-          {canComment && (
-            <div className="flex gap-2 mb-4">
-              <Avatar
-                fallback={
-                  user ? `${user.firstName[0]}${user.lastName[0]}` : "?"
-                }
-                size="sm"
-              />
-              <div className="flex-1 flex gap-2">
-                <Textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="min-h-[40px] text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAddComment();
-                    }
-                  }}
-                />
-                <Button
-                  size="icon"
-                  onClick={handleAddComment}
-                  disabled={!newComment.trim() || isSubmitting}
-                  className="shrink-0"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Comment List */}
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {comments.length === 0 && (
-              <p className="text-xs text-neutral-400 text-center py-4">
-                No comments yet
-              </p>
-            )}
-            {comments.map((comment) => (
-              <div key={comment.id} className="flex gap-2">
+          <div className="space-y-3 mb-3 max-h-48 overflow-y-auto">
+            {comments.map((c) => (
+              <div key={c.id} className="flex gap-2.5 group">
                 <Avatar
-                  fallback={`${comment.user.firstName[0]}${comment.user.lastName[0]}`}
+                  fallback={`${c.user.firstName[0]}${c.user.lastName[0]}`}
                   size="sm"
                 />
-                <div className="flex-1 rounded-lg bg-neutral-50 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">
-                      {comment.user.firstName} {comment.user.lastName}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-neutral-700">
+                      {c.user.firstName} {c.user.lastName}
                     </span>
                     <span className="text-[10px] text-neutral-400">
-                      {format(new Date(comment.createdAt), "MMM d, h:mm a")}
+                      {new Date(c.createdAt).toLocaleDateString()}
                     </span>
+                    <button
+                      onClick={() => handleDeleteComment(c.id)}
+                      className="ml-auto opacity-0 group-hover:opacity-100 p-0.5 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </div>
-                  <p className="text-sm text-neutral-700 mt-1">
-                    {comment.content}
-                  </p>
+                  <p className="text-xs text-neutral-600 mt-0.5">{c.content}</p>
                 </div>
               </div>
             ))}
+            {loadingComments && (
+              <p className="text-xs text-neutral-400">Loading comments...</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Input
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="text-xs h-8"
+              onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
+            />
+            <Button
+              type="button"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleAddComment}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
 
         {/* Actions */}
-        {canDelete && (
-          <div className="flex justify-end pt-4 border-t border-neutral-100">
-            <Button variant="destructive" size="sm" onClick={handleDelete}>
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Delete Task
-            </Button>
-          </div>
-        )}
+        <div className="flex justify-end mt-5 pt-5 border-t border-neutral-100">
+          <Button variant="destructive" size="sm" onClick={handleDelete}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete Task
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

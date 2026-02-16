@@ -1,103 +1,78 @@
 // ─── Enums ───────────────────────────────────
-export enum TaskStatus {
-  TODO = "TODO",
-  IN_PROGRESS = "IN_PROGRESS",
-  REVIEW = "REVIEW",
-  DONE = "DONE",
-}
 
-export enum TaskPriority {
-  LOW = "LOW",
-  MEDIUM = "MEDIUM",
-  HIGH = "HIGH",
-}
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
 
-// ─── User Types ──────────────────────────────
+// ─── Models ──────────────────────────────────
+
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt?: string;
-  roles?: string[];
-  permissions?: string[];
-}
-
-export interface AuthUser extends User {
   roles: string[];
   permissions: string[];
-}
-
-// ─── Role & Permission Types ─────────────────
-export interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-  permissions: string[];
-  userCount?: number;
   createdAt: string;
-}
-
-export interface Permission {
-  id: string;
-  name: string;
-  description: string | null;
-  resource: string;
-  action: string;
-}
-
-// ─── Project Types ───────────────────────────
-export interface ProjectMember {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  updatedAt: string;
 }
 
 export interface Project {
   id: string;
   name: string;
-  description: string | null;
+  description?: string;
+  createdById: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  createdBy: ProjectMember;
-  members: { user: ProjectMember }[];
-  tasks?: Task[];
-  _count?: { tasks: number; members: number };
+  createdBy?: Pick<User, "id" | "firstName" | "lastName">;
+  members?: ProjectMember[];
+  _count?: {
+    tasks: number;
+    members: number;
+  };
 }
 
-// ─── Task Types ──────────────────────────────
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  joinedAt: string;
+  user: Pick<User, "id" | "email" | "firstName" | "lastName">;
+}
+
 export interface Task {
   id: string;
   title: string;
-  description: string | null;
+  description?: string;
   status: TaskStatus;
   priority: TaskPriority;
   projectId: string;
-  dueDate: string | null;
+  assigneeId?: string;
+  createdById: string;
+  dueDate?: string;
   createdAt: string;
   updatedAt: string;
-  assignee: ProjectMember | null;
-  createdBy: { id: string; firstName: string; lastName: string };
-  project?: { id: string; name: string };
-  comments?: Comment[];
-  _count?: { comments: number };
+  project?: Pick<Project, "id" | "name">;
+  assignee?: Pick<User, "id" | "firstName" | "lastName" | "email">;
+  createdBy?: Pick<User, "id" | "firstName" | "lastName">;
+  _count?: {
+    comments: number;
+  };
 }
 
-// ─── Comment Types ───────────────────────────
 export interface Comment {
   id: string;
   content: string;
   taskId: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
-  user: ProjectMember;
+  user: Pick<User, "id" | "firstName" | "lastName">;
 }
 
-// ─── API Response Types ──────────────────────
+// ─── API Response ────────────────────────────
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
@@ -114,7 +89,8 @@ export interface Pagination {
   totalPages: number;
 }
 
-// ─── Auth Types ──────────────────────────────
+// ─── Auth ────────────────────────────────────
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -128,40 +104,30 @@ export interface RegisterPayload {
 }
 
 export interface AuthResponse {
-  user: AuthUser;
+  user: User;
   token: string;
 }
 
-// ─── Form Types ──────────────────────────────
+// ─── Forms ───────────────────────────────────
+
 export interface CreateProjectPayload {
   name: string;
-  description?: string;
-}
-
-export interface UpdateProjectPayload {
-  name?: string;
   description?: string;
 }
 
 export interface CreateTaskPayload {
   title: string;
   description?: string;
-  status?: TaskStatus;
-  priority?: TaskPriority;
+  priority: TaskPriority;
   projectId: string;
-  assigneeId?: string | null;
-  dueDate?: string | null;
+  assigneeId?: string;
+  dueDate?: string;
 }
 
 export interface UpdateTaskPayload {
   title?: string;
-  description?: string | null;
-  status?: TaskStatus;
+  description?: string;
   priority?: TaskPriority;
-  dueDate?: string | null;
-}
-
-export interface CreateCommentPayload {
-  content: string;
-  taskId: string;
+  assigneeId?: string;
+  dueDate?: string;
 }

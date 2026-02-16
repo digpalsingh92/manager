@@ -11,13 +11,6 @@ export const store = configureStore({
     tasks: taskReducer,
     ui: uiReducer,
   },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: ["persist/PERSIST"],
-      },
-    }),
-  devTools: process.env.NODE_ENV !== "production",
 });
 
 export type RootState = ReturnType<typeof store.getState>;

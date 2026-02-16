@@ -6,37 +6,31 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { registerUser, clearError } from "@/redux/slices/authSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { registerUser, clearError } from "@/redux/slices/authSlice";
-import { UserPlus } from "lucide-react";
 
-const registerSchema = z
+const schema = z
   .object({
-    firstName: z.string().min(1, "First name is required").max(50),
-    lastName: z.string().min(1, "Last name is required").max(50),
-    email: z.string().email("Please enter a valid email"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Must contain an uppercase letter")
-      .regex(/[a-z]/, "Must contain a lowercase letter")
-      .regex(/[0-9]/, "Must contain a number"),
-    confirmPassword: z.string(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Please confirm your password"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
   });
 
-type RegisterForm = z.infer<typeof registerSchema>;
+type FormData = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isLoading, error, isAuthenticated } = useAppSelector(
+  const { isAuthenticated, isLoading, error } = useAppSelector(
     (state) => state.auth,
   );
 
@@ -44,52 +38,56 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
   });
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    }
+    if (isAuthenticated) router.push("/dashboard");
   }, [isAuthenticated, router]);
 
   useEffect(() => {
-    dispatch(clearError());
+    return () => {
+      dispatch(clearError());
+    };
   }, [dispatch]);
 
-  const onSubmit = (data: RegisterForm) => {
+  const onSubmit = async (data: FormData) => {
     const { confirmPassword, ...payload } = data;
     dispatch(registerUser(payload));
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 lg:hidden mb-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900">
-            <span className="text-sm font-bold text-white">PM</span>
+            <span className="text-xs font-bold text-white">PM</span>
           </div>
-          <span className="text-lg font-bold">ProManage</span>
+          <span className="text-sm font-semibold tracking-tight">
+            ProManage
+          </span>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+          Create an account
+        </h1>
         <p className="text-sm text-neutral-500">
-          Get started with ProManage in seconds
+          Get started with ProManage for free
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="firstName">First name</Label>
             <Input
               id="firstName"
@@ -100,7 +98,7 @@ export default function RegisterPage() {
               <p className="text-xs text-red-500">{errors.firstName.message}</p>
             )}
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="lastName">Last name</Label>
             <Input id="lastName" placeholder="Doe" {...register("lastName")} />
             {errors.lastName && (
@@ -108,42 +106,36 @@ export default function RegisterPage() {
             )}
           </div>
         </div>
-
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
+            placeholder="you@company.com"
             {...register("email")}
           />
           {errors.email && (
             <p className="text-xs text-red-500">{errors.email.message}</p>
           )}
         </div>
-
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             type="password"
             placeholder="••••••••"
-            autoComplete="new-password"
             {...register("password")}
           />
           {errors.password && (
             <p className="text-xs text-red-500">{errors.password.message}</p>
           )}
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirmPassword">Confirm password</Label>
           <Input
             id="confirmPassword"
             type="password"
             placeholder="••••••••"
-            autoComplete="new-password"
             {...register("confirmPassword")}
           />
           {errors.confirmPassword && (
@@ -152,16 +144,8 @@ export default function RegisterPage() {
             </p>
           )}
         </div>
-
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            <>
-              <UserPlus className="h-4 w-4" />
-              Create Account
-            </>
-          )}
+          {isLoading ? "Creating account..." : "Create account"}
         </Button>
       </form>
 
@@ -170,7 +154,7 @@ export default function RegisterPage() {
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-neutral-900 underline underline-offset-4 hover:text-neutral-700"
+          className="font-medium text-neutral-900 hover:underline underline-offset-4"
         >
           Sign in
         </Link>

@@ -1,16 +1,13 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
-
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 15000,
 });
 
-// ─── Request Interceptor ────────────────────
+// Request interceptor — attach JWT token
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
@@ -21,22 +18,20 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
-// ─── Response Interceptor ───────────────────
+// Response interceptor — handle 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
-      }
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
