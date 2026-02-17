@@ -39,7 +39,7 @@ RUN npm ci --omit=dev
 
 # Copy Prisma
 COPY prisma ./prisma/
-RUN npx prisma generate
+RUN npx prisma migrate deploy
 
 # Copy built code
 COPY --from=builder /app/dist ./dist
