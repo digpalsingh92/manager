@@ -1,5 +1,5 @@
 # ─── Build Stage ──────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -19,17 +19,17 @@ COPY src ./src/
 RUN npm run build
 
 # ─── Production Stage ────────────────────────
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodeapp -u 1001
+RUN groupadd -g 1001 nodejs && \
+  useradd -u 1001 -g nodejs -m nodeapp
 
 # Copy production dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy Prisma
 COPY prisma ./prisma/
@@ -45,9 +45,5 @@ RUN mkdir -p logs && chown -R nodeapp:nodejs logs
 USER nodeapp
 
 EXPOSE 5000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
 
 CMD ["node", "dist/server.js"]
