@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { fetchProjectById } from "@/redux/slices/projectSlice";
+import { fetchProjectById, fetchProjectStatuses } from "@/redux/slices/projectSlice";
 import { fetchTasksByProject } from "@/redux/slices/taskSlice";
 import { setCreateTaskModalOpen } from "@/redux/slices/uiSlice";
 import { KanbanBoard } from "@/components/board/KanbanBoard";
@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Users, Calendar } from "lucide-react";
+import { Plus, Users, Calendar, UserPlus } from "lucide-react";
+import { AddProjectMemberModal } from "@/components/forms/AddProjectMemberModal";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -21,10 +23,13 @@ export default function ProjectDetailPage() {
     (state) => state.projects,
   );
   const { tasks } = useAppSelector((state) => state.tasks);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const canManageMembers = usePermission("manage_members");
 
   useEffect(() => {
     if (id) {
       dispatch(fetchProjectById(id));
+      dispatch(fetchProjectStatuses(id));
       dispatch(fetchTasksByProject(id));
     }
   }, [id, dispatch]);
@@ -82,12 +87,25 @@ export default function ProjectDetailPage() {
             )}
           </div>
         </div>
-        <Button
-          onClick={() => dispatch(setCreateTaskModalOpen(true))}
-          className="w-fit"
-        >
-          <Plus className="h-4 w-4" /> Add Task
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          {canManageMembers && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setAddMemberOpen(true)}
+            >
+              <UserPlus className="h-4 w-4 mr-1.5" />
+              Add Members
+            </Button>
+          )}
+          <Button
+            onClick={() => dispatch(setCreateTaskModalOpen(true))}
+            className="w-full sm:w-auto"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Add Task
+          </Button>
+        </div>
       </div>
 
       {/* Members */}
@@ -105,6 +123,15 @@ export default function ProjectDetailPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {canManageMembers && (
+        <AddProjectMemberModal
+          projectId={id}
+          open={addMemberOpen}
+          onOpenChange={setAddMemberOpen}
+          existingMembers={currentProject.members}
+        />
       )}
 
       {/* Kanban Board */}

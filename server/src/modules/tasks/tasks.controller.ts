@@ -40,7 +40,10 @@ export class TasksController {
 
   moveTask = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const task = await this.tasksService.moveTask(id, req.body.status);
+    const task = await this.tasksService.moveTask(id, {
+      status: req.body.status,
+      statusId: req.body.statusId,
+    });
     sendResponse(res, 200, 'Task status updated successfully', task);
   });
 

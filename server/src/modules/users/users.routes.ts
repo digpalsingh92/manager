@@ -8,10 +8,20 @@ import { updateUserRoleSchema, getUsersQuerySchema } from './users.validation';
 const router = Router();
 const usersController = new UsersController();
 
+// Admin user management (full access)
 router.get(
   '/',
   authenticate,
   checkPermission('manage_users'),
+  validate(getUsersQuerySchema),
+  usersController.getUsers
+);
+
+// User search for project membership (Admin + Project Manager via `manage_members`)
+router.get(
+  '/search',
+  authenticate,
+  checkPermission('manage_members'),
   validate(getUsersQuerySchema),
   usersController.getUsers
 );

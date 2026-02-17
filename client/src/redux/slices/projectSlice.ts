@@ -1,10 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import type { Project, CreateProjectPayload } from "@/types";
 import { projectService } from "@/services/project.service";
+import { projectStatusService, type ProjectStatus } from "@/services/project-status.service";
 
 interface ProjectState {
   projects: Project[];
   currentProject: Project | null;
+  currentProjectStatuses: ProjectStatus[];
   isLoading: boolean;
   error: string | null;
   total: number;
@@ -13,6 +15,7 @@ interface ProjectState {
 const initialState: ProjectState = {
   projects: [],
   currentProject: null,
+  currentProjectStatuses: [],
   isLoading: false,
   error: null,
   total: 0,
@@ -37,6 +40,19 @@ export const fetchProjectById = createAsyncThunk(
       return await projectService.getProjectById(id);
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to fetch project");
+    }
+  },
+);
+
+export const fetchProjectStatuses = createAsyncThunk(
+  "projects/fetchStatuses",
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      return await projectStatusService.getStatuses(projectId);
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to fetch project statuses",
+      );
     }
   },
 );
@@ -70,6 +86,7 @@ const projectSlice = createSlice({
   reducers: {
     clearCurrentProject: (state) => {
       state.currentProject = null;
+      state.currentProjectStatuses = [];
     },
   },
   extraReducers: (builder) => {
@@ -103,6 +120,9 @@ const projectSlice = createSlice({
       })
       .addCase(deleteProject.fulfilled, (state, action) => {
         state.projects = state.projects.filter((p) => p.id !== action.payload);
+      })
+      .addCase(fetchProjectStatuses.fulfilled, (state, action) => {
+        state.currentProjectStatuses = action.payload;
       });
   },
 });

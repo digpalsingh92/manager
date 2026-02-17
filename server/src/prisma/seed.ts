@@ -147,7 +147,7 @@ async function seed() {
   console.log('\n👤 Creating sample users...');
 
   const sampleUsers = [
-    { email: 'om@projectmanager.com', firstName: 'Jane', lastName: 'Manager', role: 'PROJECT_MANAGER' },
+    { email: 'pm@projectmanager.com', firstName: 'Jane', lastName: 'Manager', role: 'PROJECT_MANAGER' },
     { email: 'dev@projectmanager.com', firstName: 'John', lastName: 'Developer', role: 'DEVELOPER' },
     { email: 'viewer@projectmanager.com', firstName: 'Jane', lastName: 'Viewer', role: 'VIEWER' },
   ];

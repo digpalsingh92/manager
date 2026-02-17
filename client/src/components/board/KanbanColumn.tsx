@@ -8,7 +8,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { TaskCard } from "./TaskCard";
-import type { Task, TaskStatus } from "@/types";
+import type { Task } from "@/types";
+
+type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+
+type ProjectStatus = {
+  id: string;
+  projectId: string;
+  key: string;
+  label: string;
+  position: number;
+};
 
 const columnConfig: Record<TaskStatus, { label: string; color: string }> = {
   TODO: { label: "To Do", color: "bg-neutral-400" },
@@ -18,13 +28,16 @@ const columnConfig: Record<TaskStatus, { label: string; color: string }> = {
 };
 
 interface KanbanColumnProps {
-  status: TaskStatus;
+  status: ProjectStatus;
   tasks: Task[];
 }
 
 export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  const config = columnConfig[status];
+  const { setNodeRef, isOver } = useDroppable({ id: status.id });
+  const config = columnConfig[status.key as TaskStatus] ?? {
+    label: status.label,
+    color: "bg-neutral-500",
+  };
 
   return (
     <div
@@ -38,12 +51,12 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
       <div className="flex items-center gap-2 p-3 border-b border-neutral-200">
         <div className={cn("h-2 w-2 rounded-full", config.color)} />
         <span className="text-xs font-semibold text-neutral-700 uppercase tracking-wider">
-          {config.label}
+          {status.label}
         </span>
         <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neutral-200 px-1.5 text-[10px] font-semibold text-neutral-600">
           {tasks.length}
         </span>
-      </div>
+        </div>
 
       {/* Tasks */}
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)]">
