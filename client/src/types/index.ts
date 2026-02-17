@@ -131,3 +131,15 @@ export interface UpdateTaskPayload {
   assigneeId?: string;
   dueDate?: string;
 }
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+}

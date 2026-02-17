@@ -6,7 +6,8 @@ export class TasksRepository {
     projectId: string;
     skip: number;
     take: number;
-    status?: TaskStatus;
+    status?: TaskStatus; // legacy enum filter
+    statusId?: string;
     priority?: TaskPriority;
     assigneeId?: string;
   }) {
@@ -14,6 +15,7 @@ export class TasksRepository {
       projectId: options.projectId,
       deletedAt: null,
       ...(options.status && { status: options.status }),
+      ...(options.statusId && { statusId: options.statusId }),
       ...(options.priority && { priority: options.priority }),
       ...(options.assigneeId && { assigneeId: options.assigneeId }),
     };
@@ -24,6 +26,7 @@ export class TasksRepository {
         skip: options.skip,
         take: options.take,
         include: {
+          statusDef: true,
           assignee: {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
@@ -44,6 +47,7 @@ export class TasksRepository {
     return prisma.task.findFirst({
       where: { id, deletedAt: null },
       include: {
+        statusDef: true,
         assignee: {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
@@ -73,6 +77,7 @@ export class TasksRepository {
     status?: TaskStatus;
     priority?: TaskPriority;
     projectId: string;
+    statusId?: string | null;
     assigneeId?: string | null;
     createdById: string;
     dueDate?: Date | null;
@@ -84,6 +89,7 @@ export class TasksRepository {
         status: data.status || 'TODO',
         priority: data.priority || 'MEDIUM',
         projectId: data.projectId,
+        statusId: data.statusId ?? null,
         assigneeId: data.assigneeId,
         createdById: data.createdById,
         dueDate: data.dueDate,

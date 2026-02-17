@@ -48,11 +48,18 @@ export class ProjectsService {
   }
 
   async createProject(data: CreateProjectInput, userId: string) {
-    return this.projectsRepository.create({
-      name: data.name,
-      description: data.description,
-      createdById: userId,
-    });
+    try {
+      return await this.projectsRepository.create({
+        name: data.name,
+        description: data.description,
+        createdById: userId,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        throw AppError.conflict('Project with this name already exists.');
+      }
+      throw error;
+    }
   }
 
   async updateProject(id: string, data: { name?: string; description?: string }) {

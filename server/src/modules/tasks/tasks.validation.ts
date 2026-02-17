@@ -14,7 +14,8 @@ export const createTaskSchema = z.object({
       .string()
       .max(2000, 'Description must not exceed 2000 characters')
       .optional(),
-    status: taskStatusEnum.default('TODO').optional(),
+    status: taskStatusEnum.default('TODO').optional(), // legacy, will be mapped to statusId
+    statusId: z.string().uuid('Invalid status ID').optional(),
     priority: taskPriorityEnum.default('MEDIUM').optional(),
     projectId: z
       .string({ required_error: 'Project ID is required' })
@@ -36,7 +37,8 @@ export const updateTaskSchema = z.object({
       .trim()
       .optional(),
     description: z.string().max(2000).optional().nullable(),
-    status: taskStatusEnum.optional(),
+    status: taskStatusEnum.optional(), // legacy
+    statusId: z.string().uuid('Invalid status ID').optional(),
     priority: taskPriorityEnum.optional(),
     dueDate: z.coerce.date().optional().nullable(),
   }),
@@ -46,9 +48,14 @@ export const moveTaskSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid task ID'),
   }),
-  body: z.object({
-    status: taskStatusEnum,
-  }),
+  body: z
+    .object({
+      status: taskStatusEnum.optional(), // legacy
+      statusId: z.string().uuid('Invalid status ID').optional(),
+    })
+    .refine((body) => body.status || body.statusId, {
+      message: 'Either status or statusId must be provided',
+    }),
 });
 
 export const assignTaskSchema = z.object({
@@ -76,7 +83,8 @@ export const tasksByProjectSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().positive().default(1).optional(),
     limit: z.coerce.number().int().positive().max(100).default(20).optional(),
-    status: taskStatusEnum.optional(),
+    status: taskStatusEnum.optional(), // legacy
+    statusId: z.string().uuid('Invalid status ID').optional(),
     priority: taskPriorityEnum.optional(),
     assigneeId: z.string().uuid().optional(),
   }),

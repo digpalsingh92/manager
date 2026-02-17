@@ -25,6 +25,7 @@ const schema = z.object({
   description: z.string().max(1000).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
   dueDate: z.string().optional(),
+  assigneeId: z.string().uuid().optional().or(z.literal("")).transform((v) => (v === "" ? undefined : v)),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -42,7 +43,7 @@ export function CreateTaskModal() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any, 
     defaultValues: { priority: "MEDIUM" },
   });
 
@@ -56,7 +57,14 @@ export function CreateTaskModal() {
   const onSubmit = async (data: FormData) => {
     if (!currentProject) return;
     await dispatch(
-      createTask({ ...data, projectId: currentProject.id }),
+      createTask({
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        dueDate: data.dueDate,
+        projectId: currentProject.id,
+        assigneeId: data.assigneeId,
+      }),
     ).unwrap();
     handleClose();
   };
@@ -107,6 +115,25 @@ export function CreateTaskModal() {
               <Input id="dueDate" type="date" {...register("dueDate")} />
             </div>
           </div>
+          {currentProject && currentProject.members && currentProject.members.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="assignee">Assign To</Label>
+              <Select
+                value={watch("assigneeId") || ""}
+                onValueChange={(v) => setValue("assigneeId", v)}
+              >
+                <SelectOption value="">Unassigned</SelectOption>
+                {currentProject.members.map((m) => (
+                  <SelectOption key={m.id} value={m.userId}>
+                    {m.user.firstName} {m.user.lastName} ({m.user.email})
+                  </SelectOption>
+                ))}
+              </Select>
+              <p className="text-[10px] text-neutral-400">
+                You can assign this task to a single project member.
+              </p>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel

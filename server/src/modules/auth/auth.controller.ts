@@ -25,4 +25,15 @@ export class AuthController {
     const profile = await this.authService.getProfile(userId);
     sendResponse(res, 200, 'Profile retrieved successfully', profile);
   });
+
+  changePassword = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const result = await this.authService.changePassword(userId, req.body);
+    sendResponse(res, 200, 'Password changed successfully', result);
+  });
+
+  resetPassword = asyncHandler(async (req: Request, res: Response) => {
+    const result = await this.authService.resetPassword(req.body);
+    sendResponse(res, 200, 'Password reset successfully', result);
+  });
 }

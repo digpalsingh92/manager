@@ -101,6 +101,15 @@ export default function LoginPage() {
             <p className="text-xs text-red-500">{errors.password.message}</p>
           )}
         </div>
+
+        <div className="text-sm text-neutral-500 cursor-pointer">
+          <Link
+            href="/reset-password"
+            className="font-medium text-neutral-900 hover:underline underline-offset-4"
+          >
+            Reset Password
+          </Link>
+        </div>
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Signing in..." : "Sign in"}
         </Button>

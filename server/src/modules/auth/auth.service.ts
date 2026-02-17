@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.config';
 import { AppError } from '../../utils/appError';
 import { AuthRepository } from './auth.repository';
-import { RegisterInput, LoginInput } from './auth.validation';
+import { RegisterInput, LoginInput, ChangePasswordInput, ResetPasswordInput } from './auth.validation';
 import { AuthPayload } from '../../middlewares/auth.middleware';
 
 export class AuthService {
@@ -105,6 +105,66 @@ export class AuthService {
       roles,
       permissions,
     };
+  }
+
+  async changePassword(userId: string, data: ChangePasswordInput) {
+    // Find user with password
+    const user = await this.authRepository.findUserByEmail(
+      (await this.authRepository.findUserById(userId))?.email || ''
+    );
+
+    if (!user) {
+      throw AppError.notFound('User not found.');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(data.currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw AppError.badRequest('Current password is incorrect.');
+    }
+
+    // Ensure new password is different from old password
+    const isSamePassword = await bcrypt.compare(data.newPassword, user.password);
+    if (isSamePassword) {
+      throw AppError.badRequest('New password must be different from current password.');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(data.newPassword, salt);
+
+    // Update password
+    await this.authRepository.updateUserPassword(userId, hashedPassword);
+
+    return { message: 'Password changed successfully.' };
+  }
+
+  async resetPassword(data: ResetPasswordInput) {
+    // Find user by email
+    const user = await this.authRepository.findUserByEmail(data.email);
+
+    if (!user) {
+      throw AppError.notFound('No account found with this email address.');
+    }
+
+    if (!user.isActive) {
+      throw AppError.forbidden('Your account has been deactivated.');
+    }
+
+    // Ensure new password is different from old password
+    const isSamePassword = await bcrypt.compare(data.newPassword, user.password);
+    if (isSamePassword) {
+      throw AppError.badRequest('New password must be different from current password.');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(data.newPassword, salt);
+
+    // Update password
+    await this.authRepository.updateUserPassword(user.id, hashedPassword);
+
+    return { message: 'Password reset successfully.' };
   }
 
   private generateToken(payload: AuthPayload): string {
