@@ -9,5 +9,6 @@ export function usePermission(permission: string): boolean {
 export function useIsAdmin(): boolean {
   const user = useAppSelector((state) => state.auth.user);
   if (!user) return false;
-  return user.roles?.includes("admin") || false;
+  const roles = user.roles || [];
+  return roles.some((role) => role.toUpperCase() === "ADMIN");
 }
