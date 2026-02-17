@@ -179,7 +179,7 @@ export class TasksService {
 
     return this.tasksRepository.update(id, {
       status: statusKey,
-      statusId,
+      statusDef: statusId ? { connect: { id: statusId } } : { disconnect: true },
     });
   }
 
