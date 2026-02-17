@@ -3,13 +3,6 @@ import { prisma } from '../config/database.config';
 import { AppError } from '../utils/appError';
 import { asyncHandler } from '../utils/asyncHandler';
 
-/**
- * Dynamic permission-checking middleware.
- * Validates that the authenticated user has the required permission
- * through their assigned roles.
- *
- * Usage: checkPermission('create_task')
- */
 export const checkPermission = (requiredPermission: string) => {
   return asyncHandler(
     async (req: Request, _res: Response, next: NextFunction) => {
