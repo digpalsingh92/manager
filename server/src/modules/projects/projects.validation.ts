@@ -11,6 +11,9 @@ export const createProjectSchema = z.object({
       .string()
       .max(1000, 'Description must not exceed 1000 characters')
       .optional(),
+    workspaceId: z
+      .string({ required_error: 'Workspace ID is required' })
+      .uuid('Invalid workspace ID'),
   }),
 });
 
@@ -54,6 +57,7 @@ export const getProjectsQuerySchema = z.object({
     page: z.coerce.number().int().positive().default(1).optional(),
     limit: z.coerce.number().int().positive().max(100).default(10).optional(),
     search: z.string().optional(),
+    workspaceId: z.string().uuid('Invalid workspace ID').optional(),
   }),
 });
 

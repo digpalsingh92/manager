@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database.config';
-import { Prisma } from '@prisma/client';
+import { Prisma, WorkspaceRole } from '@prisma/client';
 
 export class AuthRepository {
   async findUserByEmail(email: string) {
@@ -14,6 +14,13 @@ export class AuthRepository {
                   include: { permission: true },
                 },
               },
+            },
+          },
+        },
+        workspaceMembers: {
+          include: {
+            workspace: {
+              select: { id: true, name: true },
             },
           },
         },
@@ -43,6 +50,13 @@ export class AuthRepository {
             },
           },
         },
+        workspaceMembers: {
+          include: {
+            workspace: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
   }
@@ -61,6 +75,34 @@ export class AuthRepository {
     });
   }
 
+  /**
+   * Create a default workspace for the user and assign them as OWNER.
+   * This runs inside a transaction.
+   */
+  async createDefaultWorkspace(userId: string, workspaceName: string) {
+    return prisma.$transaction(async (tx) => {
+      const workspace = await tx.workspace.create({
+        data: {
+          name: workspaceName,
+          createdById: userId,
+        },
+      });
+
+      await tx.workspaceMember.create({
+        data: {
+          userId,
+          workspaceId: workspace.id,
+          role: WorkspaceRole.OWNER,
+        },
+      });
+
+      return workspace;
+    });
+  }
+
+  /**
+   * @deprecated No longer used for new registrations. Kept for backward compatibility.
+   */
   async assignDefaultRole(userId: string) {
     // Find the DEVELOPER role (default for new users)
     const defaultRole = await prisma.role.findUnique({

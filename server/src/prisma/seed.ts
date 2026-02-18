@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, WorkspaceRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -18,45 +18,27 @@ const PERMISSIONS = [
   { name: 'manage_users', description: 'Manage user accounts and roles', resource: 'user', action: 'manage' },
 ];
 
-// ─── Role → Permission Mapping ──────────────────
+// ─── Role → Permission Mapping (legacy, for backward compat) ──
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   ADMIN: [
-    'create_project',
-    'update_project',
-    'delete_project',
-    'manage_members',
-    'create_task',
-    'update_task',
-    'move_task',
-    'delete_task',
-    'assign_task',
-    'comment_task',
-    'manage_users',
+    'create_project', 'update_project', 'delete_project', 'manage_members',
+    'create_task', 'update_task', 'move_task', 'delete_task', 'assign_task',
+    'comment_task', 'manage_users',
   ],
   PROJECT_MANAGER: [
-    'create_project',
-    'update_project',
-    'manage_members',
-    'create_task',
-    'update_task',
-    'move_task',
-    'delete_task',
-    'assign_task',
+    'create_project', 'update_project', 'manage_members',
+    'create_task', 'update_task', 'move_task', 'delete_task', 'assign_task',
     'comment_task',
   ],
   DEVELOPER: [
-    'create_task',
-    'update_task',
-    'move_task',
-    'assign_task',
-    'comment_task',
+    'create_task', 'update_task', 'move_task', 'assign_task', 'comment_task',
   ],
   VIEWER: [
     'comment_task',
   ],
 };
 
-// ─── Role Descriptions ──────────────────────────
+// ─── Role Descriptions (legacy) ─────────────────
 const ROLES = [
   { name: 'ADMIN', description: 'Full system access, can manage users, roles, and all resources' },
   { name: 'PROJECT_MANAGER', description: 'Can manage projects, tasks, and members' },
@@ -67,7 +49,7 @@ const ROLES = [
 async function seed() {
   console.log('🌱 Starting database seed...\n');
 
-  // ─── Create Permissions ────────────────────
+  // ─── Create Permissions (legacy) ──────────────
   console.log('📋 Creating permissions...');
   const permissionMap = new Map<string, string>();
 
@@ -81,7 +63,7 @@ async function seed() {
     console.log(`  ✅ ${perm.name}`);
   }
 
-  // ─── Create Roles ─────────────────────────
+  // ─── Create Roles (legacy) ────────────────────
   console.log('\n👥 Creating roles...');
   const roleMap = new Map<string, string>();
 
@@ -95,13 +77,11 @@ async function seed() {
     console.log(`  ✅ ${roleData.name}`);
   }
 
-  // ─── Assign Permissions to Roles ──────────
+  // ─── Assign Permissions to Roles (legacy) ─────
   console.log('\n🔗 Assigning permissions to roles...');
 
   for (const [roleName, permissions] of Object.entries(ROLE_PERMISSIONS)) {
     const roleId = roleMap.get(roleName)!;
-
-    // Remove existing role permissions
     await prisma.rolePermission.deleteMany({ where: { roleId } });
 
     for (const permName of permissions) {
@@ -113,7 +93,7 @@ async function seed() {
     console.log(`  ✅ ${roleName}: ${permissions.length} permissions`);
   }
 
-  // ─── Create Admin User ────────────────────
+  // ─── Create Admin User + Default Workspace ────
   console.log('\n👤 Creating admin user...');
 
   const adminPassword = await bcrypt.hash('Admin@123', 12);
@@ -128,7 +108,7 @@ async function seed() {
     },
   });
 
-  // Assign ADMIN role
+  // Assign ADMIN role (legacy)
   const adminRoleId = roleMap.get('ADMIN')!;
   await prisma.userRole.upsert({
     where: {
@@ -141,15 +121,37 @@ async function seed() {
     },
   });
 
-  console.log(`  ✅ Admin user created`);
+  // Create default workspace for admin (OWNER)
+  let adminWorkspace = await prisma.workspace.findFirst({
+    where: { createdById: adminUser.id },
+  });
 
-  // ─── Create Sample Users ──────────────────
+  if (!adminWorkspace) {
+    adminWorkspace = await prisma.workspace.create({
+      data: {
+        name: "Admin's Workspace",
+        createdById: adminUser.id,
+      },
+    });
+
+    await prisma.workspaceMember.create({
+      data: {
+        userId: adminUser.id,
+        workspaceId: adminWorkspace.id,
+        role: WorkspaceRole.OWNER,
+      },
+    });
+  }
+
+  console.log(`  ✅ Admin user created with workspace "${adminWorkspace.name}"`);
+
+  // ─── Create Sample Users + Workspace Memberships ──
   console.log('\n👤 Creating sample users...');
 
   const sampleUsers = [
-    { email: 'pm@projectmanager.com', firstName: 'Jane', lastName: 'Manager', role: 'PROJECT_MANAGER' },
-    { email: 'dev@projectmanager.com', firstName: 'John', lastName: 'Developer', role: 'DEVELOPER' },
-    { email: 'viewer@projectmanager.com', firstName: 'Jane', lastName: 'Viewer', role: 'VIEWER' },
+    { email: 'pm@projectmanager.com', firstName: 'Jane', lastName: 'Manager', legacyRole: 'PROJECT_MANAGER', workspaceRole: WorkspaceRole.PROJECT_MANAGER },
+    { email: 'dev@projectmanager.com', firstName: 'John', lastName: 'Developer', legacyRole: 'DEVELOPER', workspaceRole: WorkspaceRole.DEVELOPER },
+    { email: 'viewer@projectmanager.com', firstName: 'Jane', lastName: 'Viewer', legacyRole: 'VIEWER', workspaceRole: WorkspaceRole.VIEWER },
   ];
 
   for (const userData of sampleUsers) {
@@ -165,7 +167,8 @@ async function seed() {
       },
     });
 
-    const roleId = roleMap.get(userData.role)!;
+    // Assign legacy role
+    const roleId = roleMap.get(userData.legacyRole)!;
     await prisma.userRole.upsert({
       where: {
         userId_roleId: { userId: user.id, roleId },
@@ -177,7 +180,79 @@ async function seed() {
       },
     });
 
-    console.log(`  ✅ ${userData.email} (${userData.role}) / User@123`);
+    // Create personal workspace for user
+    const existingWorkspace = await prisma.workspace.findFirst({
+      where: { createdById: user.id },
+    });
+
+    if (!existingWorkspace) {
+      const userWorkspace = await prisma.workspace.create({
+        data: {
+          name: `${userData.firstName}'s Workspace`,
+          createdById: user.id,
+        },
+      });
+
+      await prisma.workspaceMember.create({
+        data: {
+          userId: user.id,
+          workspaceId: userWorkspace.id,
+          role: WorkspaceRole.OWNER,
+        },
+      });
+    }
+
+    // Add user to admin's workspace with workspace role
+    const existingMembership = await prisma.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: { userId: user.id, workspaceId: adminWorkspace.id },
+      },
+    });
+
+    if (!existingMembership) {
+      await prisma.workspaceMember.create({
+        data: {
+          userId: user.id,
+          workspaceId: adminWorkspace.id,
+          role: userData.workspaceRole,
+        },
+      });
+    }
+
+    console.log(`  ✅ ${userData.email} (${userData.workspaceRole}) / User@123`);
+  }
+
+  // ─── Create Sample Project in Admin Workspace ──
+  console.log('\n📦 Creating sample project...');
+
+  const existingProject = await prisma.project.findFirst({
+    where: {
+      workspaceId: adminWorkspace.id,
+      name: 'Demo Project',
+    },
+  });
+
+  if (!existingProject) {
+    const project = await prisma.project.create({
+      data: {
+        name: 'Demo Project',
+        description: 'A sample project to demonstrate workspace-based project management',
+        workspaceId: adminWorkspace.id,
+        createdById: adminUser.id,
+      },
+    });
+
+    // Add admin as project member
+    await prisma.projectMember.create({
+      data: {
+        projectId: project.id,
+        userId: adminUser.id,
+      },
+    });
+
+    console.log(`  ✅ Demo Project created in "${adminWorkspace.name}"`);
+  } else {
+    console.log(`  ⏭️  Demo Project already exists`);
   }
 
   console.log('\n✨ Seed completed successfully!');
@@ -186,6 +261,7 @@ async function seed() {
   console.log('  PM:      pm@projectmanager.com / User@123');
   console.log('  Dev:     dev@projectmanager.com / User@123');
   console.log('  Viewer:  viewer@projectmanager.com / User@123');
+  console.log(`\n🏢 Admin Workspace ID: ${adminWorkspace.id}`);
 }
 
 seed()

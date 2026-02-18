@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { ProjectsController } from './projects.controller';
 import { authenticate } from '../../middlewares/auth.middleware';
-import { checkPermission } from '../../middlewares/permission.middleware';
+import { checkWorkspacePermission } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   createProjectSchema,
@@ -31,7 +31,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  checkPermission('create_project'),
+  checkWorkspacePermission('create_project'),
   validate(createProjectSchema),
   projectsController.createProject
 );
@@ -39,7 +39,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  checkPermission('update_project'),
+  checkWorkspacePermission('update_project'),
   validate(updateProjectSchema),
   projectsController.updateProject
 );
@@ -47,7 +47,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  checkPermission('delete_project'),
+  checkWorkspacePermission('delete_project'),
   validate(projectIdParamSchema),
   projectsController.deleteProject
 );
@@ -55,7 +55,7 @@ router.delete(
 router.post(
   '/:id/members',
   authenticate,
-  checkPermission('manage_members'),
+  checkWorkspacePermission('manage_members'),
   validate(addMemberSchema),
   projectsController.addMember
 );

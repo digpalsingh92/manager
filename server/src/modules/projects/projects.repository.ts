@@ -6,15 +6,25 @@ export class ProjectsRepository {
     skip: number;
     take: number;
     where?: Prisma.ProjectWhereInput;
+    workspaceId?: string;
   }) {
+    const where: Prisma.ProjectWhereInput = {
+      ...options.where,
+      deletedAt: null,
+      ...(options.workspaceId && { workspaceId: options.workspaceId }),
+    };
+
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
-        where: { ...options.where, deletedAt: null },
+        where,
         skip: options.skip,
         take: options.take,
         include: {
           createdBy: {
             select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          workspace: {
+            select: { id: true, name: true },
           },
           members: {
             include: {
@@ -27,7 +37,7 @@ export class ProjectsRepository {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.project.count({ where: { ...options.where, deletedAt: null } }),
+      prisma.project.count({ where }),
     ]);
 
     return { projects, total };
@@ -39,6 +49,9 @@ export class ProjectsRepository {
       include: {
         createdBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        workspace: {
+          select: { id: true, name: true },
         },
         members: {
           include: {
@@ -61,17 +74,21 @@ export class ProjectsRepository {
     });
   }
 
-  async create(data: { name: string; description?: string; createdById: string }) {
+  async create(data: { name: string; description?: string; workspaceId: string; createdById: string }) {
     return prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
           name: data.name,
           description: data.description,
+          workspaceId: data.workspaceId,
           createdById: data.createdById,
         },
         include: {
           createdBy: {
             select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          workspace: {
+            select: { id: true, name: true },
           },
         },
       });
@@ -95,6 +112,9 @@ export class ProjectsRepository {
       include: {
         createdBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        workspace: {
+          select: { id: true, name: true },
         },
         members: {
           include: {

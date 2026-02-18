@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { CommentsController } from './comments.controller';
 import { authenticate } from '../../middlewares/auth.middleware';
-import { checkPermission } from '../../middlewares/permission.middleware';
+import { checkWorkspacePermission } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   createCommentSchema,
@@ -22,7 +22,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  checkPermission('comment_task'),
+  checkWorkspacePermission('comment_task'),
   validate(createCommentSchema),
   commentsController.createComment
 );

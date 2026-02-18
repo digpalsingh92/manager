@@ -25,6 +25,14 @@ enum TaskPriority {
   HIGH
 }
 
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  PROJECT_MANAGER
+  DEVELOPER
+  VIEWER
+}
+
 // ─── Models ──────────────────────────────────
 
 model User {
@@ -39,15 +47,50 @@ model User {
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  userRoles       UserRole[]
-  projectMembers  ProjectMember[]
-  taskAssignees   TaskAssignee[]
-  assignedTasks   Task[]       @relation("TaskAssigneeUser")
-  createdTasks    Task[]    @relation("TaskCreator")
-  createdProjects Project[] @relation("ProjectCreator")
-  comments        Comment[]
+  userRoles          UserRole[]
+  projectMembers     ProjectMember[]
+  taskAssignees      TaskAssignee[]
+  assignedTasks      Task[]            @relation("TaskAssigneeUser")
+  createdTasks       Task[]            @relation("TaskCreator")
+  createdProjects    Project[]         @relation("ProjectCreator")
+  comments           Comment[]
+  workspaceMembers   WorkspaceMember[]
+  createdWorkspaces  Workspace[]       @relation("WorkspaceCreator")
 
   @@map("users")
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy User              @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  members   WorkspaceMember[]
+  projects  Project[]
+
+  @@index([createdById])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  workspaceId String        @map("workspace_id")
+  role        WorkspaceRole @default(DEVELOPER)
+  joinedAt    DateTime      @default(now()) @map("joined_at")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("workspace_members")
 }
 
 model Role {
@@ -116,8 +159,9 @@ model RolePermission {
 
 model Project {
   id          String    @id @default(uuid())
-  name        String    @unique
+  name        String
   description String?
+  workspaceId String    @map("workspace_id")
   createdById String    @map("created_by_id")
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -125,11 +169,14 @@ model Project {
   deletedAt   DateTime? @map("deleted_at")
 
   // Relations
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
   createdBy      User            @relation("ProjectCreator", fields: [createdById], references: [id])
   members        ProjectMember[]
   tasks          Task[]
   statuses       ProjectStatus[]
 
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
   @@index([createdById])
   @@map("projects")
 }

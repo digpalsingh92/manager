@@ -5,6 +5,7 @@ import { AppError } from '../../utils/appError';
 import { AuthRepository } from './auth.repository';
 import { RegisterInput, LoginInput, ChangePasswordInput, ResetPasswordInput } from './auth.validation';
 import { AuthPayload } from '../../middlewares/auth.middleware';
+import { logger } from '../../utils/logger';
 
 export class AuthService {
   private authRepository: AuthRepository;
@@ -32,13 +33,24 @@ export class AuthService {
       lastName: data.lastName,
     });
 
-    // Assign default role
-    await this.authRepository.assignDefaultRole(user.id);
+    // Create default workspace and assign as OWNER
+    const workspaceName = `${data.firstName}'s Workspace`;
+    const workspace = await this.authRepository.createDefaultWorkspace(user.id, workspaceName);
+
+    logger.info(`User ${user.id} registered with default workspace ${workspace.id}`);
 
     // Generate token
     const token = this.generateToken({ userId: user.id, email: user.email });
 
-    return { user, token };
+    return {
+      user,
+      workspace: {
+        id: workspace.id,
+        name: workspace.name,
+        role: 'OWNER',
+      },
+      token,
+    };
   }
 
   async login(data: LoginInput) {
@@ -61,7 +73,7 @@ export class AuthService {
     // Generate token
     const token = this.generateToken({ userId: user.id, email: user.email });
 
-    // Format roles and permissions
+    // Format roles and permissions (legacy)
     const roles = user.userRoles.map((ur) => ur.role.name);
     const permissions = [
       ...new Set(
@@ -70,6 +82,13 @@ export class AuthService {
         )
       ),
     ];
+
+    // Format workspace memberships
+    const workspaces = user.workspaceMembers.map((wm) => ({
+      id: wm.workspace.id,
+      name: wm.workspace.name,
+      role: wm.role,
+    }));
 
     return {
       user: {
@@ -80,6 +99,7 @@ export class AuthService {
         roles,
         permissions,
       },
+      workspaces,
       token,
     };
   }
@@ -99,11 +119,19 @@ export class AuthService {
       ),
     ];
 
+    const workspaces = user.workspaceMembers.map((wm) => ({
+      id: wm.workspace.id,
+      name: wm.workspace.name,
+      role: wm.role,
+    }));
+
     return {
       ...user,
       userRoles: undefined,
+      workspaceMembers: undefined,
       roles,
       permissions,
+      workspaces,
     };
   }
 

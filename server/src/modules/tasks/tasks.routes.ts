@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { TasksController } from './tasks.controller';
 import { authenticate } from '../../middlewares/auth.middleware';
-import { checkPermission } from '../../middlewares/permission.middleware';
+import { checkWorkspacePermission } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   createTaskSchema,
@@ -25,7 +25,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  checkPermission('create_task'),
+  checkWorkspacePermission('create_task'),
   validate(createTaskSchema),
   tasksController.createTask
 );
@@ -33,7 +33,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  checkPermission('update_task'),
+  checkWorkspacePermission('update_task'),
   validate(updateTaskSchema),
   tasksController.updateTask
 );
@@ -41,7 +41,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  checkPermission('delete_task'),
+  checkWorkspacePermission('delete_task'),
   validate(taskIdParamSchema),
   tasksController.deleteTask
 );
@@ -49,7 +49,7 @@ router.delete(
 router.patch(
   '/:id/move',
   authenticate,
-  checkPermission('move_task'),
+  checkWorkspacePermission('move_task'),
   validate(moveTaskSchema),
   tasksController.moveTask
 );
@@ -57,7 +57,7 @@ router.patch(
 router.patch(
   '/:id/assign',
   authenticate,
-  checkPermission('assign_task'),
+  checkWorkspacePermission('assign_task'),
   validate(assignTaskSchema),
   tasksController.assignTask
 );

@@ -11,7 +11,7 @@ export class ProjectsController {
   }
 
   getProjects = asyncHandler(async (req: Request, res: Response) => {
-    const result = await this.projectsService.getProjects(req.query as any);
+    const result = await this.projectsService.getProjects(req.query as any, req.user!.id);
     sendResponse(res, 200, 'Projects retrieved successfully', result.projects, {
       pagination: result.pagination,
     });
